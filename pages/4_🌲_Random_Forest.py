@@ -4,7 +4,7 @@ import numpy as np
 import joblib
 import os
 
-st.set_page_config(page_title="Random Forest Prediction", page_icon="", layout="wide")
+st.set_page_config(page_title="Random Forest Prediction", page_icon="🌲", layout="wide")
 
 # Custom CSS
 st.markdown("""
@@ -54,10 +54,6 @@ if model is None:
     st.error("❌ ไม่พบไฟล์โมเดล! โปรดตรวจสอบโฟลเดอร์ models/")
     st.stop()
 
-# แสดง features ที่โมเดลใช้ (สำหรับ debug)
-st.sidebar.info(f"**Features ที่โมเดลใช้:** {features}")
-st.sidebar.info(f"**Label Encoders:** {list(label_encoders.keys())}")
-
 # Sidebar - ฟอร์มกรอกข้อมูล
 st.sidebar.header("📝 กรอกข้อมูลการขาย")
 st.sidebar.markdown("---")
@@ -72,7 +68,7 @@ with st.sidebar.form("input_form"):
     customers_count = st.number_input("จำนวนลูกค้า (Customers Count)", min_value=10, max_value=300, value=100, step=10)
     employee_count = st.number_input("จำนวนพนักงาน (Employee Count)", min_value=5, max_value=40, value=20, step=1)
     
-    st.subheader(" ข้อมูลสินค้าและการเงิน")
+    st.subheader("📦 ข้อมูลสินค้าและการเงิน")
     units_sold = st.number_input("จำนวนหน่วยที่ขายได้ (Units Sold)", min_value=10, max_value=300, value=100, step=10)
     avg_price_per_unit = st.number_input("ราคาเฉลี่ยต่อหน่วย (Avg Price)", min_value=10.0, max_value=5000.0, value=500.0, step=10.0)
     discount_rate = st.slider("อัตราส่วนลด (%)", 0.0, 30.0, 5.0, 0.1)
@@ -84,7 +80,9 @@ with st.sidebar.form("input_form"):
     returned = st.selectbox("มีการคืนสินค้าหรือไม่ (Returned)", ["FALSE", "TRUE"])
     satisfaction_score = st.slider("คะแนนความพึงพอใจ (1-5)", 1.0, 5.0, 4.0, 0.1)
     
-    st.subheader(" วันและเวลา")
+    st.subheader("📅 วันและเวลา")
+    # เพิ่ม day_of_week กลับเข้ามา
+    day_of_week = st.selectbox("วันในสัปดาห์ (Day of Week)", list(label_encoders['day_of_week'].classes_))
     is_weekend = st.selectbox("เป็นวันหยุดสุดสัปดาห์หรือไม่ (Is Weekend)", ["FALSE", "TRUE"])
     
     submitted = st.form_submit_button("🔮 ทำนายยอดขาย", use_container_width=True, type="primary")
@@ -97,7 +95,7 @@ with col1:
     
     if submitted:
         try:
-            # แปลงข้อมูลให้ตรงกับโมเดล
+            # แปลงข้อมูลให้ตรงกับโมเดล - เพิ่ม day_of_week กลับมา
             input_data = pd.DataFrame({
                 'branch': [label_encoders['branch'].transform([branch])[0]],
                 'category': [label_encoders['category'].transform([category])[0]],
@@ -112,7 +110,8 @@ with col1:
                 'payment_method': [label_encoders['payment_method'].transform([payment_method])[0]],
                 'is_weekend': [1 if is_weekend == "TRUE" else 0],
                 'returned': [1 if returned == "TRUE" else 0],
-                'satisfaction_score': [satisfaction_score]
+                'satisfaction_score': [satisfaction_score],
+                'day_of_week': [label_encoders['day_of_week'].transform([day_of_week])[0]]
             })
             
             # ทำนายผล
@@ -123,7 +122,7 @@ with col1:
             
             st.markdown(f"""
             <div class="result-box">
-                <h2> ยอดขายที่คาดการณ์</h2>
+                <h2>💰 ยอดขายที่คาดการณ์</h2>
                 <h1 style="font-size: 3rem; margin: 0;">{formatted_prediction}</h1>
             </div>
             """, unsafe_allow_html=True)
@@ -139,7 +138,7 @@ with col1:
             else:
                 st.warning(f"⚠️ **ขาดทุนโดยประมาณ:** ฿ {profit_estimate:,.2f} (ควรปรับลดต้นทุนหรือเพิ่มยอดขาย)")
                 
-            st.info(" **ปัจจัยที่ส่งผลต่อยอดขาย:** จำนวนลูกค้า, จำนวนหน่วยที่ขายได้, และแคมเปญส่งเสริมการขาย มีผลอย่างมีนัยสำคัญต่อยอดขายรวม")
+            st.info("📊 **ปัจจัยที่ส่งผลต่อยอดขาย:** จำนวนลูกค้า, จำนวนหน่วยที่ขายได้, และแคมเปญส่งเสริมการขาย มีผลอย่างมีนัยสำคัญต่อยอดขายรวม")
             
         except Exception as e:
             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
@@ -155,14 +154,14 @@ with col2:
                 'จำนวนลูกค้า', 'จำนวนพนักงาน', 'จำนวนหน่วยที่ขาย',
                 'ราคาเฉลี่ย/หน่วย', 'อัตราส่วนลด (%)', 'ต้นทุนรวม',
                 'กำไรขั้นต้น', 'วิธีการชำระเงิน', 'มีการคืนสินค้า', 
-                'คะแนนความพึงพอใจ', 'วันหยุดสุดสัปดาห์'
+                'คะแนนความพึงพอใจ', 'วันในสัปดาห์', 'วันหยุดสุดสัปดาห์'
             ],
             'ค่า': [
                 branch, category, campaign,
                 customers_count, employee_count, units_sold,
                 f"฿ {avg_price_per_unit:,.2f}", f"{discount_rate}%", f"฿ {cost_amount:,.2f}",
                 f"฿ {gross_profit:,.2f}", payment_method, returned,
-                satisfaction_score, is_weekend
+                satisfaction_score, day_of_week, is_weekend
             ]
         })
         st.dataframe(summary_df, use_container_width=True, hide_index=True)
@@ -173,7 +172,7 @@ with col2:
     **อัลกอริทึม:** Random Forest Regressor  
     **งาน:** Regression (ทำนายค่าต่อเนื่อง)  
     **เป้าหมาย:** Sales Amount (ยอดขายรวม)  
-    **จำนวนฟีเจอร์:** 14 ตัวแปร  
+    **จำนวนฟีเจอร์:** 15 ตัวแปร  
     
     *หมายเหตุ: Random Forest เป็น Ensemble Learning ที่รวม Decision Tree หลายต้นเข้าด้วยกัน ช่วยลด Overfitting และจัดการกับความสัมพันธ์ที่ซับซ้อนระหว่างฟีเจอร์ได้ดี*
     """)
