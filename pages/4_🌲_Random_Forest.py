@@ -6,13 +6,15 @@ import os
 
 st.set_page_config(page_title="Random Forest Prediction", page_icon="🌲", layout="wide")
 
-# Custom CSS for Forest Theme
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
-        color: #2d6a4f;
+        background: linear-gradient(90deg, #2d6a4f 0%, #52b788 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
         padding: 1rem 0;
     }
@@ -23,9 +25,6 @@ st.markdown("""
         margin: 1rem 0;
         background: linear-gradient(135deg, #40916c 0%, #52b788 100%);
         color: white;
-    }
-    .stSidebar {
-        background-color: #f0fdf4;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -60,12 +59,10 @@ st.sidebar.header("📝 กรอกข้อมูลการขาย")
 st.sidebar.markdown("---")
 
 with st.sidebar.form("input_form"):
-    st.subheader("🏪 ข้อมูลสาขาและหมวดหมู่")
-    branch = st.selectbox("สาขา (Branch)", ["A", "B", "C", "D", "E"])
-    category = st.selectbox("หมวดหมู่สินค้า (Category)", 
-                            ["Fashion", "Electronics", "Food & Beverage", "Beauty", "Home & Living", "Sports"])
-    campaign = st.selectbox("แคมเปญส่งเสริมการขาย (Campaign)", 
-                            ["None", "Weekend Boost", "Member Day", "Payday Promo", "Clearance Sale", "Mega Sale"])
+    st.subheader(" ข้อมูลสาขาและหมวดหมู่")
+    branch = st.selectbox("สาขา (Branch)", list(label_encoders['branch'].classes_))
+    category = st.selectbox("หมวดหมู่สินค้า (Category)", list(label_encoders['category'].classes_))
+    campaign = st.selectbox("แคมเปญส่งเสริมการขาย (Campaign)", list(label_encoders['campaign'].classes_))
     
     st.subheader("👥 ข้อมูลบุคลากรและลูกค้า")
     customers_count = st.number_input("จำนวนลูกค้า (Customers Count)", min_value=10, max_value=300, value=100, step=10)
@@ -79,14 +76,12 @@ with st.sidebar.form("input_form"):
     gross_profit = st.number_input("กำไรขั้นต้น (Gross Profit)", min_value=1000.0, max_value=200000.0, value=20000.0, step=1000.0)
     
     st.subheader("💳 การชำระเงินและความพึงพอใจ")
-    payment_method = st.selectbox("วิธีการชำระเงิน (Payment Method)", 
-                                  ["Credit Card", "E-Wallet", "QR Payment", "Mobile Banking", "Cash"])
+    payment_method = st.selectbox("วิธีการชำระเงิน (Payment Method)", list(label_encoders['payment_method'].classes_))
     returned = st.selectbox("มีการคืนสินค้าหรือไม่ (Returned)", ["FALSE", "TRUE"])
     satisfaction_score = st.slider("คะแนนความพึงพอใจ (1-5)", 1.0, 5.0, 4.0, 0.1)
     
     st.subheader("📅 วันและเวลา")
-    day_of_week = st.selectbox("วันในสัปดาห์ (Day of Week)", 
-                               ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+    day_of_week = st.selectbox("วันในสัปดาห์ (Day of Week)", list(label_encoders['day_of_week'].classes_))
     is_weekend = st.selectbox("เป็นวันหยุดสุดสัปดาห์หรือไม่ (Is Weekend)", ["FALSE", "TRUE"])
     
     submitted = st.form_submit_button("🔮 ทำนายยอดขาย", use_container_width=True, type="primary")
@@ -98,12 +93,12 @@ with col1:
     st.subheader("💰 ผลการทำนายยอดขาย")
     
     if submitted:
-        # แปลงข้อมูลให้ตรงกับโมเดล
         try:
+            # แปลงข้อมูลให้ตรงกับโมเดล
             input_data = pd.DataFrame({
-                'branch': [branch],
-                'category': [category],
-                'campaign': [campaign],
+                'branch': [label_encoders['branch'].transform([branch])[0]],
+                'category': [label_encoders['category'].transform([category])[0]],
+                'campaign': [label_encoders['campaign'].transform([campaign])[0]],
                 'customers_count': [customers_count],
                 'employee_count': [employee_count],
                 'units_sold': [units_sold],
@@ -111,21 +106,12 @@ with col1:
                 'discount_rate': [discount_rate],
                 'cost_amount': [cost_amount],
                 'gross_profit': [gross_profit],
-                'payment_method': [payment_method],
-                'returned': [returned],
+                'payment_method': [label_encoders['payment_method'].transform([payment_method])[0]],
+                'is_weekend': [1 if is_weekend == "TRUE" else 0],
+                'returned': [1 if returned == "TRUE" else 0],
                 'satisfaction_score': [satisfaction_score],
-                'day_of_week': [day_of_week],
-                'is_weekend': [is_weekend]
+                'day_of_week': [label_encoders['day_of_week'].transform([day_of_week])[0]]
             })
-            
-            # Encode categorical variables
-            for col in ['branch', 'category', 'campaign', 'payment_method', 'day_of_week', 'returned', 'is_weekend']:
-                if col in label_encoders:
-                    try:
-                        input_data[col] = label_encoders[col].transform(input_data[col])
-                    except ValueError:
-                        st.warning(f"⚠️ ค่า '{input_data[col].values[0]}' ในคอลัมน์ '{col}' ไม่อยู่ในข้อมูลฝึกสอน")
-                        st.stop()
             
             # ทำนายผล
             prediction = model.predict(input_data[features])[0]
@@ -157,7 +143,7 @@ with col1:
             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 with col2:
-    st.subheader(" ข้อมูลที่คุณกรอก")
+    st.subheader("📋 ข้อมูลที่คุณกรอก")
     if submitted:
         summary_df = pd.DataFrame({
             'รายการ': [
