@@ -115,18 +115,15 @@ st.markdown("""
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
         <strong>📧 อีเมล:</strong><br>
-        alonenightcore02@gmail.com
-        <span style="font-size: 1.5rem; color: #000000;">664245032</span>
+        <span style="font-size: 1.5rem; color: #000000;">alonenightcore02@gmail.com/span>
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
         <strong>🏫 สถาบัน:</strong><br>
-        มหาวิทยาลัยราชภัฏนครปฐม
-        <span style="font-size: 1.5rem; color: #000000;">664245032</span>
+        <span style="font-size: 1.5rem; color: #000000;">มหาวิทยาลัยราชภัฏนครปฐม</span>
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
-        <strong>📅 ปีการศึกษา:</strong><br>
-        2566
-        <span style="font-size: 1.5rem; color: #000000;">664245032</span>
+        <span style="font-size: 1.5rem; color: #000000;">ปีการศึกษา:</strong><br>
+        2566</span>
     </p>
 </div>
 """, unsafe_allow_html=True)
