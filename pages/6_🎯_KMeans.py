@@ -1,49 +1,91 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+import os
+import warnings
+warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="K-Means Clustering", page_icon="🎯", layout="wide")
 
-st.markdown("# 🎯 K-Means Clustering - การจัดกลุ่มข้อมูลการขาย")
-st.markdown("### วิเคราะห์และจัดกลุ่มข้อมูลการขายด้วย K-Means Clustering")
+# Custom CSS
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        padding: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<p class="main-header">🎯 K-Means Clustering - จัดกลุ่มข้อมูลการขาย</p>', unsafe_allow_html=True)
+st.markdown("### วิเคราะห์และจัดกลุ่มข้อมูลการขายด้วยอัลกอริทึม K-Means")
 st.markdown("---")
 
-# โหลดข้อมูล
+# ============================================================
+# โหลดและทำความสะอาดข้อมูล
+# ============================================================
 @st.cache_data
-def load_data():
-    # ลองโหลดจากไฟล์ CSV
-    csv_path = "mall_sales_eda_3000_records(Sales_Data).csv"
-    if os.path.exists(csv_path):
-        return pd.read_csv(csv_path)
-    return None
+def load_and_clean_data():
+    csv_path = "mall_sales_eda_3000_records.csv"
+    if not os.path.exists(csv_path):
+        return None
+    
+    df = pd.read_csv(csv_path)
+    
+    # ทำความสะอาดตัวเลขที่มี comma
+    cols_to_clean = ['sales_amount', 'cost_amount', 'gross_profit', 'avg_price_per_unit']
+    for col in cols_to_clean:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.replace(',', '', regex=False).astype(float)
+    
+    # ทำความสะอาด discount_rate
+    if 'discount_rate' in df.columns:
+        df['discount_rate'] = df['discount_rate'].astype(str).str.replace('%', '', regex=False).astype(float)
+    
+    # แปลง boolean
+    bool_cols = ['is_weekend', 'returned']
+    for col in bool_cols:
+        if col in df.columns:
+            df[col] = df[col].map({'TRUE': 1, 'FALSE': 0, True: 1, False: 0}).astype(int)
+    
+    return df
 
-df = load_data()
+df = load_and_clean_data()
 
 if df is None:
-    st.error("❌ ไม่พบไฟล์ข้อมูล! โปรดวางไฟล์ `mall_sales_eda_3000_records(Sales_Data).csv` ในโฟลเดอร์โปรเจกต์")
+    st.error("❌ ไม่พบไฟล์ `mall_sales_eda_3000_records.csv` ในโฟลเดอร์โปรเจกต์!")
     st.stop()
 
-# ทำความสะอาดข้อมูล
-st.sidebar.header("⚙️ ตั้งค่า")
+# ============================================================
+# Sidebar - ตั้งค่า
+# ============================================================
+st.sidebar.header("⚙️ ตั้งค่า K-Means")
+st.sidebar.markdown("---")
 
 # เลือกจำนวน clusters
-n_clusters = st.sidebar.slider("จำนวนกลุ่ม (Clusters)", 2, 10, 4)
+n_clusters = st.sidebar.slider("จำนวนกลุ่ม (Clusters)", 2, 10, 4, 
+                                help="เลือกจำนวนกลุ่มที่ต้องการจัด")
 
 # เลือก features
 st.sidebar.subheader("เลือกตัวแปร")
-available_features = ['customers_count', 'employee_count', 'units_sold', 
-                      'avg_price_per_unit', 'sales_amount', 'cost_amount', 
-                      'gross_profit', 'satisfaction_score']
+available_features = [
+    'customers_count', 'employee_count', 'units_sold',
+    'avg_price_per_unit', 'discount_rate', 'sales_amount',
+    'cost_amount', 'gross_profit', 'satisfaction_score'
+]
 
 selected_features = st.sidebar.multiselect(
-    "เลือกตัวแปรที่ต้องการใช้",
+    "เลือกตัวแปร (อย่างน้อย 2 ตัว)",
     available_features,
     default=['customers_count', 'units_sold', 'sales_amount']
 )
@@ -52,55 +94,72 @@ if len(selected_features) < 2:
     st.warning("⚠️ โปรดเลือกอย่างน้อย 2 ตัวแปร")
     st.stop()
 
-# ทำความสะอาดข้อมูล
-df_clean = df[selected_features].copy()
-df_clean = df_clean.fillna(df_clean.median())
+# ============================================================
+# ทำ K-Means แบบ Real-time
+# ============================================================
+X = df[selected_features].copy()
+X = X.fillna(X.median())
 
 # Scaling
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(df_clean)
+X_scaled = scaler.fit_transform(X)
 
-# รัน K-Means
+# Train K-Means
 kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
 clusters = kmeans.fit_predict(X_scaled)
-df_clean['Cluster'] = clusters
+df['Cluster'] = clusters
 
-# แสดงผล
-st.success(f"✅ จัดกลุ่มข้อมูลเสร็จสิ้น! พบ {n_clusters} กลุ่ม")
+st.success(f"✅ จัดกลุ่มข้อมูลเสร็จสิ้น! พบ {n_clusters} กลุ่ม จากข้อมูล {len(df)} รายการ")
 
-# Tabs
-tab1, tab2, tab3 = st.tabs(["📊 ภาพรวม", " กราฟ", "📋 ข้อมูลในแต่ละกลุ่ม"])
+# ============================================================
+# Tabs สำหรับแสดงผล
+# ============================================================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 ภาพรวม", 
+    "📈 กราฟ PCA", 
+    " ข้อมูลแต่ละกลุ่ม",
+    " ตารางข้อมูล"
+])
 
+# ============================================================
+# TAB 1: ภาพรวม
+# ============================================================
 with tab1:
-    st.subheader("📊 ภาพรวมของแต่ละกลุ่ม")
-    
-    # แสดงจำนวนข้อมูลในแต่ละ cluster
-    cluster_counts = df_clean['Cluster'].value_counts().sort_index()
+    st.subheader(" ภาพรวมของแต่ละกลุ่ม")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("### จำนวนข้อมูลในแต่ละกลุ่ม")
+        cluster_counts = df['Cluster'].value_counts().sort_index()
         st.bar_chart(cluster_counts)
     
     with col2:
         st.markdown("### สัดส่วนของแต่ละกลุ่ม")
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(6, 6))
+        colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
         ax.pie(cluster_counts, labels=[f'กลุ่ม {i}' for i in cluster_counts.index], 
-               autopct='%1.1f%%', startangle=90)
+               autopct='%1.1f%%', startangle=90, colors=colors)
         ax.axis('equal')
         st.pyplot(fig)
     
-    # แสดงค่าเฉลี่ยของแต่ละ cluster
-    st.markdown("### ค่าเฉลี่ยของแต่ละตัวแปรในแต่ละกลุ่ม")
-    cluster_means = df_clean.groupby('Cluster')[selected_features].mean()
-    st.dataframe(cluster_means.round(2))
-
-with tab2:
-    st.subheader("📈 กราฟแสดงการจัดกลุ่ม")
+    st.markdown("---")
+    st.subheader("📊 ค่าเฉลี่ยของแต่ละตัวแปรในแต่ละกลุ่ม")
     
-    # ใช้ PCA เพื่อลดมิติเหลือ 2 มิติ
-    pca = PCA(n_components=2)
+    # แปลงค่าทั้งหมดเป็น string เพื่อป้องกัน PyArrow Error
+    cluster_means = df.groupby('Cluster')[selected_features].mean().round(2)
+    cluster_means_str = cluster_means.astype(str)
+    
+    st.dataframe(cluster_means_str, width="stretch")
+
+# ============================================================
+# TAB 2: กราฟ PCA
+# ============================================================
+with tab2:
+    st.subheader("📈 การแสดงผลแบบ PCA (2 มิติ)")
+    
+    # ใช้ PCA ลดมิติเหลือ 2 มิติ
+    pca = PCA(n_components=2, random_state=42)
     X_pca = pca.fit_transform(X_scaled)
     
     df_pca = pd.DataFrame({
@@ -109,61 +168,101 @@ with tab2:
         'Cluster': clusters
     })
     
-    # Scatter plot
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(12, 8))
     
-    colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+    colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
     
     for i in range(n_clusters):
         cluster_data = df_pca[df_pca['Cluster'] == i]
         ax.scatter(cluster_data['PC1'], cluster_data['PC2'], 
-                  c=colors[i % len(colors)], label=f'กลุ่ม {i}', 
-                  alpha=0.6, s=50)
+                  c=[colors[i]], label=f'กลุ่ม {i}', 
+                  alpha=0.6, s=80, edgecolors='k', linewidth=0.5)
     
     # แสดง centroids
     centroids_pca = pca.transform(kmeans.cluster_centers_)
     ax.scatter(centroids_pca[:, 0], centroids_pca[:, 1], 
-              c='black', marker='X', s=200, label='จุดศูนย์กลาง', 
-              edgecolors='white', linewidth=2)
+              c='red', marker='X', s=300, label='จุดศูนย์กลาง', 
+              edgecolors='black', linewidth=2, zorder=5)
     
-    ax.set_xlabel('Principal Component 1', fontsize=12)
-    ax.set_ylabel('Principal Component 2', fontsize=12)
-    ax.set_title('K-Means Clustering Results', fontsize=14, fontweight='bold')
-    ax.legend()
+    ax.set_xlabel(f'Principal Component 1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', fontsize=12)
+    ax.set_ylabel(f'Principal Component 2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', fontsize=12)
+    ax.set_title(f'K-Means Clustering Results (k={n_clusters})', fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10)
     ax.grid(True, alpha=0.3)
     
     st.pyplot(fig)
     
-    st.info(f"💡 PCA อธิบายความแปรปรวนได้ {sum(pca.explained_variance_ratio_)*100:.1f}%")
+    st.info(f"💡 PCA อธิบายความแปรปรวนได้ {sum(pca.explained_variance_ratio_)*100:.1f}% ของข้อมูลทั้งหมด")
 
+# ============================================================
+# TAB 3: ข้อมูลแต่ละกลุ่ม
+# ============================================================
 with tab3:
-    st.subheader("📋 ข้อมูลในแต่ละกลุ่ม")
+    st.subheader("🔍 วิเคราะห์แต่ละกลุ่ม")
     
     selected_cluster = st.selectbox("เลือกกลุ่มที่ต้องการดู", range(n_clusters))
     
-    cluster_data = df[df_clean['Cluster'] == selected_cluster]
+    cluster_data = df[df['Cluster'] == selected_cluster]
     
-    st.markdown(f"### กลุ่มที่ {selected_cluster}")
-    st.markdown(f"**จำนวนข้อมูล:** {len(cluster_data)} รายการ")
+    col1, col2 = st.columns(2)
     
-    # แสดงค่าเฉลี่ย
-    st.markdown("### ค่าเฉลี่ยของกลุ่มนี้")
-    cluster_stats = cluster_data[selected_features].describe()
-    st.dataframe(cluster_stats.round(2))
+    with col1:
+        st.metric("จำนวนข้อมูล", f"{len(cluster_data)} รายการ")
+        st.metric("สัดส่วน", f"{len(cluster_data)/len(df)*100:.1f}%")
     
-    # แสดงข้อมูลตัวอย่าง
-    st.markdown("### ข้อมูลตัวอย่าง (10 รายการแรก)")
-    st.dataframe(cluster_data.head(10))
+    with col2:
+        st.metric("ค่าเฉลี่ยยอดขาย", f"฿ {cluster_data['sales_amount'].mean():,.2f}")
+        st.metric("ค่าเฉลี่ยความพึงพอใจ", f"{cluster_data['satisfaction_score'].mean():.2f}")
     
-    # ดาวน์โหลดข้อมูลของกลุ่มนี้
-    csv = cluster_data.to_csv(index=False)
-    st.download_button(
-        label="📥 ดาวน์โหลดข้อมูลของกลุ่มนี้",
-        data=csv,
-        file_name=f'cluster_{selected_cluster}.csv',
-        mime='text/csv'
-    )
+    st.markdown("---")
+    st.markdown(f"###  ค่าสถิติของกลุ่มที่ {selected_cluster}")
+    
+    # แปลงเป็น string เพื่อป้องกัน PyArrow Error
+    cluster_stats = cluster_data[selected_features].describe().round(2).astype(str)
+    st.dataframe(cluster_stats, width="stretch")
+    
+    st.markdown("---")
+    st.markdown(f"###  ข้อมูลตัวอย่าง (10 รายการแรก)")
+    
+    sample_data = cluster_data.head(10).copy()
+    # แปลงคอลัมน์ตัวเลขเป็น string
+    for col in sample_data.select_dtypes(include=[np.number]).columns:
+        sample_data[col] = sample_data[col].astype(str)
+    
+    st.dataframe(sample_data, width="stretch")
 
+# ============================================================
+# TAB 4: ตารางข้อมูลทั้งหมด
+# ============================================================
+with tab4:
+    st.subheader("📋 ตารางข้อมูลทั้งหมด")
+    
+    # เลือกคอลัมน์ที่จะแสดง
+    display_cols = st.multiselect(
+        "เลือกคอลัมน์ที่ต้องการแสดง",
+        df.columns.tolist(),
+        default=['Cluster'] + selected_features
+    )
+    
+    if display_cols:
+        display_df = df[display_cols].copy()
+        # แปลงคอลัมน์ตัวเลขเป็น string
+        for col in display_df.select_dtypes(include=[np.number]).columns:
+            display_df[col] = display_df[col].astype(str)
+        
+        st.dataframe(display_df, width="stretch")
+        
+        # ปุ่มดาวน์โหลด
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 ดาวน์โหลดข้อมูลทั้งหมด (CSV)",
+            data=csv,
+            file_name='mall_sales_with_clusters.csv',
+            mime='text/csv'
+        )
+
+# ============================================================
 # Footer
+# ============================================================
 st.markdown("---")
 st.markdown("*พัฒนาด้วย ❤️ โดยระบบ Machine Learning เพื่อการวิเคราะห์ข้อมูลการขาย*")
