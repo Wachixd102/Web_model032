@@ -85,7 +85,7 @@ for path in image_paths:
 
 # ถ้าไม่มีรูป ใช้ avatar จาก UI Avatars API
 if profile_image is None:
-    avatar_url = "https://ui-avatars.com/api/?name=วชิรวิทย์+พรสวาท&size=200&background=667eea&color=fff&bold=true"
+    avatar_url = "https://scontent.fbkk22-2.fna.fbcdn.net/v/t39.30808-6/711709473_2394837197667750_2574019075777161019_n.jpg?stp=dst-jpg_tt6&cstp=mx960x960&ctp=s960x960&_nc_cat=103&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeHyrJ0ZpMEU7qsxr6K6HwgCqJDikdAp1_mokOKR0CnX-aLJqAOrj1A_c9LKyLR2Qpn_DCnjIDeuwD2XaCr6DHGN&_nc_ohc=ilRFXDdib5YQ7kNvwGVlfEp&_nc_oc=AdrnT0qd7idL1Xb4Ijc0ZgweHZ_-czNs3RCGwB0phBJzXdky4WqxFyhAKmp3cTzlw5o&_nc_zt=23&_nc_ht=scontent.fbkk22-2.fna&_nc_gid=nvM4W5q9JoJepDyLMeJdLQ&_nc_ss=7b2a8&oh=00_AQFt_wlc73DVvyCcKdIMAlCnLCBkou-sfmGKWKQxpkc2YA&oe=6A725D96"
     st.markdown(f"""
     <div style="text-align: center; margin: 2rem 0;">
         <img src="{avatar_url}" style="width: 200px; height: 200px; border-radius: 50%; border: 5px solid #667eea;">
