@@ -4,13 +4,13 @@ import numpy as np
 import joblib
 import os
 
-st.set_page_config(page_title="Regression - Sales Prediction", page_icon="", layout="wide")
+st.set_page_config(page_title="Regression - Sales Prediction", page_icon="📊", layout="wide")
 
-st.markdown("#  Regression - ทำนายยอดขายรวม")
+st.markdown("# 📊 Regression - ทำนายยอดขายรวม")
 st.markdown("### ทำนายยอดขาย (Sales Amount) ด้วย Random Forest Regressor")
 st.markdown("---")
 
-# โหลดโมเดลและรายการ Features
+# โหลดโมเดล
 @st.cache_resource
 def load_model():
     model_path = "models/regression_pipeline.pkl"
@@ -36,26 +36,31 @@ st.sidebar.markdown("---")
 with st.sidebar.form("input_form"):
     st.subheader("🏪 ข้อมูลสาขาและหมวดหมู่")
     branch = st.selectbox("สาขา (Branch)", ["A", "B", "C", "D", "E"])
-    category = st.selectbox("หมวดหมู่สินค้า (Category)", ["Fashion", "Electronics", "Food & Beverage", "Beauty", "Home & Living", "Sports"])
-    campaign = st.selectbox("แคมเปญ (Campaign)", ["None", "Weekend Boost", "Member Day", "Payday Promo", "Clearance Sale", "Mega Sale"])
+    category = st.selectbox("หมวดหมู่สินค้า (Category)", 
+                            ["Fashion", "Electronics", "Food & Beverage", "Beauty", "Home & Living", "Sports"])
+    campaign = st.selectbox("แคมเปญ (Campaign)", 
+                            ["None", "Weekend Boost", "Member Day", "Payday Promo", "Clearance Sale", "Mega Sale"])
     
-    st.subheader("👥 ข้อมูลบุคลากรและลูกค้า")
+    st.subheader(" ข้อมูลบุคลากรและลูกค้า")
     customers_count = st.number_input("จำนวนลูกค้า (Customers Count)", min_value=10, max_value=500, value=100, step=10)
     employee_count = st.number_input("จำนวนพนักงาน (Employee Count)", min_value=5, max_value=50, value=20, step=1)
     
     st.subheader("📦 ข้อมูลสินค้าและการเงิน")
     units_sold = st.number_input("จำนวนหน่วยที่ขายได้ (Units Sold)", min_value=10, max_value=500, value=100, step=10)
     avg_price_per_unit = st.number_input("ราคาเฉลี่ยต่อหน่วย (Avg Price)", min_value=10.0, max_value=5000.0, value=500.0, step=10.0)
-    discount_rate = st.slider("อัตราส่วนลด (Discount Rate)", 0.0, 30.0, 5.0, 0.1, help="เช่น 5.0 หมายถึง 5%")
+    discount_rate = st.slider("อัตราส่วนลด (%)", 0.0, 30.0, 5.0, 0.1)
     cost_amount = st.number_input("ต้นทุนรวม (Cost Amount)", min_value=1000.0, max_value=200000.0, value=30000.0, step=1000.0)
     gross_profit = st.number_input("กำไรขั้นต้น (Gross Profit)", min_value=1000.0, max_value=200000.0, value=20000.0, step=1000.0)
     
     st.subheader("📅 เงื่อนไขพิเศษ")
-    is_weekend = st.selectbox("เป็นวันหยุดสุดสัปดาห์หรือไม่?", ["FALSE", "TRUE"])
-    returned = st.selectbox("มีการคืนสินค้าหรือไม่?", ["FALSE", "TRUE"])
-    payment_method = st.selectbox("วิธีการชำระเงิน (Payment Method)", ["Credit Card", "E-Wallet", "QR Payment", "Mobile Banking", "Cash"])
-    day_of_week = st.selectbox("วันในสัปดาห์ (Day of Week)", ["วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์", "วันอาทิตย์"])
-    satisfaction_score = st.slider("คะแนนความพึงพอใจ (Satisfaction Score)", 1.0, 5.0, 4.0, 0.1)
+    # แก้ไขตรงนี้: ใช้ค่า 0/1 โดยตรงแทนข้อความ
+    is_weekend = st.selectbox("เป็นวันหยุดสุดสัปดาห์หรือไม่?", [0, 1], format_func=lambda x: "ใช่ (Weekend)" if x == 1 else "ไม่ใช่ (Weekday)")
+    returned = st.selectbox("มีการคืนสินค้าหรือไม่?", [0, 1], format_func=lambda x: "ใช่ (Returned)" if x == 1 else "ไม่ใช่ (Not Returned)")
+    payment_method = st.selectbox("วิธีการชำระเงิน (Payment Method)", 
+                                  ["Credit Card", "E-Wallet", "QR Payment", "Mobile Banking", "Cash"])
+    day_of_week = st.selectbox("วันในสัปดาห์ (Day of Week)", 
+                               ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+    satisfaction_score = st.slider("คะแนนความพึงพอใจ (1-5)", 1.0, 5.0, 4.0, 0.1)
     
     submitted = st.form_submit_button("🔮 ทำนายยอดขาย", use_container_width=True, type="primary")
 
@@ -66,8 +71,11 @@ with col1:
     st.subheader("💰 ผลการทำนายยอดขาย")
     
     if submitted:
-        # สร้าง DataFrame จากข้อมูลที่ผู้ใช้กรอก
+        # สร้าง DataFrame - แก้ไขตรงนี้: แปลงค่าเป็นตัวเลข 0/1
         input_data = pd.DataFrame({
+            'branch': [branch],
+            'category': [category],
+            'campaign': [campaign],
             'customers_count': [customers_count],
             'employee_count': [employee_count],
             'units_sold': [units_sold],
@@ -75,27 +83,24 @@ with col1:
             'discount_rate': [discount_rate],
             'cost_amount': [cost_amount],
             'gross_profit': [gross_profit],
-            'is_weekend': [1 if is_weekend == "TRUE" else 0],
-            'returned': [1 if returned == "TRUE" else 0],
-            'satisfaction_score': [satisfaction_score],
+            'is_weekend': [is_weekend],  # ตอนนี้ค่าเป็น 0 หรือ 1 แล้ว
+            'returned': [returned],       # ตอนนี้ค่าเป็น 0 หรือ 1 แล้ว
             'payment_method': [payment_method],
-            'branch': [branch],
-            'category': [category],
-            'campaign': [campaign],
-            'day_of_week': [day_of_week]
+            'day_of_week': [day_of_week],
+            'satisfaction_score': [satisfaction_score]
         })
         
         # ทำนายผล
         prediction = model.predict(input_data)[0]
         
         # จัดรูปแบบตัวเลข
-        formatted_prediction = f"{prediction:,.2f}"
+        formatted_prediction = f"฿ {prediction:,.2f}"
         
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); 
                     padding: 2rem; border-radius: 15px; text-align: center; color: white; margin: 1rem 0;">
             <h2>💰 ยอดขายที่คาดการณ์</h2>
-            <h1 style="font-size: 3rem; margin: 0;">฿ {formatted_prediction}</h1>
+            <h1 style="font-size: 3rem; margin: 0;">{formatted_prediction}</h1>
         </div>
         """, unsafe_allow_html=True)
         
@@ -107,7 +112,7 @@ with col1:
             st.success(f"✅ **ยอดขายสูงมาก!** คาดการณ์ยอดขายได้ ฿ {prediction:,.2f}")
             st.info("📊 **ปัจจัยที่ส่งผล:** จำนวนลูกค้าสูง, ยอดขายต่อหน่วยดี, หรือมีแคมเปญส่งเสริมการขายที่ดี")
         elif prediction > 50000:
-            st.info(f"️ **ยอดขายปานกลาง** คาดการณ์ยอดขายได้ ฿ {prediction:,.2f}")
+            st.info(f"📊 **ยอดขายปานกลาง** คาดการณ์ยอดขายได้ ฿ {prediction:,.2f}")
             st.info("📊 **คำแนะนำ:** เพิ่มจำนวนลูกค้าหรือปรับแคมเปญส่งเสริมการขาย")
         else:
             st.warning(f"⚠️ **ยอดขายต่ำ** คาดการณ์ยอดขายได้ ฿ {prediction:,.2f}")
@@ -128,7 +133,9 @@ with col2:
                 branch, category, campaign,
                 customers_count, employee_count, units_sold,
                 f"฿ {avg_price_per_unit:,.2f}", f"{discount_rate}%", f"฿ {cost_amount:,.2f}",
-                f"฿ {gross_profit:,.2f}", is_weekend, returned, 
+                f"฿ {gross_profit:,.2f}", 
+                'ใช่' if is_weekend == 1 else 'ไม่ใช่',
+                'ใช่' if returned == 1 else 'ไม่ใช่',
                 payment_method, day_of_week, satisfaction_score
             ]
         })
