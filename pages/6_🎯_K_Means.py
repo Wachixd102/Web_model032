@@ -11,46 +11,31 @@ warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="K-Means Clustering", page_icon="🎯", layout="wide")
 
-# Custom CSS
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        padding: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown('<p class="main-header">🎯 K-Means Clustering</p>', unsafe_allow_html=True)
-st.markdown("### จัดกลุ่มข้อมูลด้วย K-Means Clustering (อัปโหลดไฟล์เอง)")
+st.markdown("# 🎯 K-Means Clustering")
+st.markdown("### จัดกลุ่มข้อมูลด้วย K-Means Clustering")
 st.markdown("---")
 
 # ============================================================
 # ส่วนที่ 1: อัปโหลดไฟล์
 # ============================================================
-st.subheader("📤 ขั้นตอนที่ 1: อัปโหลดไฟล์ข้อมูล")
+st.subheader("📤 Step 1: Upload CSV File")
 
 uploaded_file = st.file_uploader(
-    "เลือกไฟล์ CSV ที่ต้องการวิเคราะห์",
+    "Choose a CSV file",
     type=['csv'],
-    help="รองรับไฟล์ CSV เท่านั้น"
+    help="Upload CSV file for clustering analysis"
 )
 
 if uploaded_file is None:
-    st.info("👆 กรุณาอัปโหลดไฟล์ CSV เพื่อเริ่มต้นการวิเคราะห์")
+    st.info("👆 Please upload a CSV file to start analysis")
     st.markdown("""
-    ### 📋 ตัวอย่างไฟล์ที่รองรับ:
+    ###  Supported Files:
     - `mall_sales_eda_3000_records.csv`
-    - ไฟล์ CSV ทั่วไปที่มีคอลัมน์ตัวเลข
+    - Any CSV file with numeric columns
     
-    ### 💡 เคล็ดลับ:
-    - ไฟล์ควรมีคอลัมน์ตัวเลขอย่างน้อย 2 คอลัมน์
-    - ระบบจะทำความสะอาดข้อมูลอัตโนมัติ (ลบ comma, %)
+    ### 💡 Tips:
+    - File should have at least 2 numeric columns
+    - System will auto-clean data (remove commas, %)
     """)
     st.stop()
 
@@ -87,42 +72,42 @@ def load_and_clean_data(file):
 
 df = load_and_clean_data(uploaded_file)
 
-st.success(f"✅ โหลดไฟล์สำเร็จ! พบข้อมูล {len(df)} แถว, {len(df.columns)} คอลัมน์")
+st.success(f"✅ File loaded successfully! Found {len(df)} rows, {len(df.columns)} columns")
 
 # ============================================================
 # ส่วนที่ 3: แสดงข้อมูลตัวอย่าง
 # ============================================================
-with st.expander("🔍 ดูข้อมูลตัวอย่าง"):
-    st.dataframe(df.head(10), width="stretch")
-    st.markdown(f"**ข้อมูลรวม:** {len(df)} แถว, {len(df.columns)} คอลัมน์")
+with st.expander("🔍 View Sample Data"):
+    st.dataframe(df.head(10), use_container_width=True)
+    st.markdown(f"**Total:** {len(df)} rows, {len(df.columns)} columns")
 
 # ============================================================
 # ส่วนที่ 4: เลือก Features
 # ============================================================
-st.subheader("⚙️ ขั้นตอนที่ 2: ตั้งค่าการวิเคราะห์")
+st.subheader("⚙️ Step 2: Configure Analysis")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    n_clusters = st.slider("จำนวนกลุ่ม (k)", 2, 10, 4, 
-                            help="เลือกจำนวนกลุ่มที่ต้องการจัด")
+    n_clusters = st.slider("Number of Clusters (k)", 2, 10, 4, 
+                            help="Select number of clusters")
 
 with col2:
     # เลือกเฉพาะคอลัมน์ตัวเลข
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    # กรองคอลัมน์ที่เหมาะสม (ไม่รวม ID, record_id)
+    # กรองคอลัมน์ที่เหมาะสม
     exclude_cols = ['record_id', 'ID', 'id']
     available_features = [c for c in numeric_cols if c not in exclude_cols]
     
     selected_features = st.multiselect(
-        "เลือกตัวแปร (อย่างน้อย 2 ตัว)",
+        "Select Features (min 2)",
         available_features,
         default=available_features[:3] if len(available_features) >= 3 else available_features[:2]
     )
 
 if len(selected_features) < 2:
-    st.warning("️ โปรดเลือกอย่างน้อย 2 ตัวแปร")
+    st.warning("⚠️ Please select at least 2 features")
     st.stop()
 
 # ============================================================
@@ -140,33 +125,33 @@ kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10, max_iter=300)
 clusters = kmeans.fit_predict(X_scaled)
 df['Cluster'] = clusters
 
-st.success(f"✅ จัดกลุ่มเสร็จสิ้น! พบ {n_clusters} กลุ่ม จากข้อมูล {len(df)} รายการ")
+st.success(f"✅ Clustering complete! Found {n_clusters} clusters from {len(df)} records")
 
 # ============================================================
 # ส่วนที่ 6: แสดงผล (Tabs)
 # ============================================================
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 ภาพรวม", 
-    "📈 กราฟ PCA", 
-    "🔍 ข้อมูลแต่ละกลุ่ม",
-    "📋 ตารางข้อมูล"
+    " Overview", 
+    "📈 PCA Visualization", 
+    "🔍 Cluster Details",
+    "📋 Data Table"
 ])
 
 # ============================================================
 # TAB 1: ภาพรวม
 # ============================================================
 with tab1:
-    st.subheader("📊 ภาพรวมของแต่ละกลุ่ม")
+    st.subheader("📊 Cluster Overview")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### จำนวนข้อมูลในแต่ละกลุ่ม")
+        st.markdown("### Records per Cluster")
         cluster_counts = df['Cluster'].value_counts().sort_index()
         st.bar_chart(cluster_counts)
     
     with col2:
-        st.markdown("### สัดส่วนของแต่ละกลุ่ม")
+        st.markdown("### Cluster Distribution")
         fig, ax = plt.subplots(figsize=(6, 6))
         colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
         ax.pie(cluster_counts, 
@@ -178,7 +163,7 @@ with tab1:
         st.pyplot(fig)
     
     st.markdown("---")
-    st.subheader("📊 ค่าเฉลี่ยของแต่ละตัวแปรในแต่ละกลุ่ม")
+    st.subheader("📊 Mean Values per Cluster")
     
     cluster_means = df.groupby('Cluster')[selected_features].mean().round(2)
     
@@ -187,7 +172,7 @@ with tab1:
     for col in cluster_means_display.columns:
         cluster_means_display[col] = cluster_means_display[col].astype(str)
     
-    st.dataframe(cluster_means_display, width="stretch")
+    st.dataframe(cluster_means_display, use_container_width=True)
 
 # ============================================================
 # TAB 2: กราฟ PCA
@@ -236,7 +221,7 @@ with tab2:
 # TAB 3: ข้อมูลแต่ละกลุ่ม
 # ============================================================
 with tab3:
-    st.subheader("🔍 Cluster Analysis")
+    st.subheader(" Cluster Analysis")
     
     selected_cluster = st.selectbox("Select Cluster", range(n_clusters))
     
@@ -256,7 +241,7 @@ with tab3:
             st.metric("Avg Satisfaction", f"{cluster_data['satisfaction_score'].mean():.2f}")
     
     st.markdown("---")
-    st.markdown(f"###  Statistics for Cluster {selected_cluster}")
+    st.markdown(f"### 📊 Statistics for Cluster {selected_cluster}")
     
     cluster_stats = cluster_data[selected_features].describe().round(2)
     
@@ -265,10 +250,10 @@ with tab3:
     for col in cluster_stats_display.columns:
         cluster_stats_display[col] = cluster_stats_display[col].astype(str)
     
-    st.dataframe(cluster_stats_display, width="stretch")
+    st.dataframe(cluster_stats_display, use_container_width=True)
     
     st.markdown("---")
-    st.markdown(f"### 📋 Sample Data (First 10)")
+    st.markdown(f"###  Sample Data (First 10)")
     
     sample_data = cluster_data[selected_features + ['Cluster']].head(10).copy()
     
@@ -276,7 +261,7 @@ with tab3:
     for col in sample_data.columns:
         sample_data[col] = sample_data[col].astype(str)
     
-    st.dataframe(sample_data, width="stretch")
+    st.dataframe(sample_data, use_container_width=True)
 
 # ============================================================
 # TAB 4: ตารางข้อมูล
@@ -297,7 +282,7 @@ with tab4:
         for col in display_df.columns:
             display_df[col] = display_df[col].astype(str)
         
-        st.dataframe(display_df, width="stretch")
+        st.dataframe(display_df, use_container_width=True)
         
         csv = df.to_csv(index=False)
         st.download_button(
