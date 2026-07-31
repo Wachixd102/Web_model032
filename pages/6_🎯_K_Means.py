@@ -1,332 +1,312 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
-import io
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+import warnings
+warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="K-Means Clustering", page_icon="🎯", layout="wide")
 
-# ================= Custom CSS =================
+# Custom CSS
 st.markdown("""
 <style>
-    .main-title {
+    .main-header {
         font-size: 2.5rem;
         font-weight: bold;
-        color: #e67e22;
+        background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 1rem;
-    }
-    .metric-card {
-        background: rgba(230, 126, 34, 0.1);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 4px solid #e67e22;
-        text-align: center;
+        padding: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-title">🎯 K-Means Clustering</p>', unsafe_allow_html=True)
-st.markdown("อัปโหลดไฟล์ CSV ของคุณเพื่อจัดกลุ่มข้อมูลด้วยอัลกอริทึม K-Means")
+st.markdown('<p class="main-header">🎯 K-Means Clustering</p>', unsafe_allow_html=True)
+st.markdown("### จัดกลุ่มข้อมูลด้วย K-Means Clustering (อัปโหลดไฟล์เอง)")
+st.markdown("---")
 
-# ================= Sidebar: Upload & Parameters =================
-st.sidebar.header("📁 อัปโหลดข้อมูล")
-uploaded_file = st.sidebar.file_uploader("เลือกไฟล์ CSV", type=["csv"])
+# ============================================================
+# ส่วนที่ 1: อัปโหลดไฟล์
+# ============================================================
+st.subheader("📤 ขั้นตอนที่ 1: อัปโหลดไฟล์ข้อมูล")
 
-# ถ้าไม่ได้อัปโหลด ใช้ข้อมูลตัวอย่าง
+uploaded_file = st.file_uploader(
+    "เลือกไฟล์ CSV ที่ต้องการวิเคราะห์",
+    type=['csv'],
+    help="รองรับไฟล์ CSV เท่านั้น"
+)
+
 if uploaded_file is None:
-    st.info("💡 **ยังไม่มีไฟล์ CSV** กำลังแสดงข้อมูลตัวอย่างจาก Mall Sales (สามารถอัปโหลดไฟล์ของคุณได้ทางซ้ายมือ)")
-    try:
-        df_raw = pd.read_excel("mall_sales_eda_3000_records.xlsx")
-        # เลือกเฉพาะคอลัมน์ตัวเลข
-        df_raw = df_raw.select_dtypes(include=[np.number])
-        # ลบคอลัมน์ที่ไม่ใช่ features
-        cols_to_drop = ['record_id', 'sales_amount', 'cost_amount', 'gross_profit', 
-                        'branch_a_outlier', 'special_high_sales_day']
-        df_raw = df_raw.drop(columns=[c for c in cols_to_drop if c in df_raw.columns], errors='ignore')
-        df_raw = df_raw.dropna()
-        source_name = "Mall Sales (ตัวอย่าง)"
-    except Exception as e:
-        st.error(f"❌ ไม่พบไฟล์ตัวอย่าง: {e}")
-        st.stop()
-else:
-    try:
-        df_raw = pd.read_csv(uploaded_file)
-        source_name = uploaded_file.name
-    except Exception as e:
-        st.error(f"❌ ไม่สามารถอ่านไฟล์ได้: {e}")
-        st.stop()
-
-# ================= เลือก Features (เฉพาะ Numeric) =================
-numeric_cols = df_raw.select_dtypes(include=[np.number]).columns.tolist()
-
-if len(numeric_cols) < 2:
-    st.error("❌ ไฟล์ต้องมีคอลัมน์ตัวเลขอย่างน้อย 2 คอลัมน์เพื่อทำ K-Means")
+    st.info("👆 กรุณาอัปโหลดไฟล์ CSV เพื่อเริ่มต้นการวิเคราะห์")
+    st.markdown("""
+    ### 📋 ตัวอย่างไฟล์ที่รองรับ:
+    - `mall_sales_eda_3000_records.csv`
+    - ไฟล์ CSV ทั่วไปที่มีคอลัมน์ตัวเลข
+    
+    ### 💡 เคล็ดลับ:
+    - ไฟล์ควรมีคอลัมน์ตัวเลขอย่างน้อย 2 คอลัมน์
+    - ระบบจะทำความสะอาดข้อมูลอัตโนมัติ (ลบ comma, %)
+    """)
     st.stop()
 
-st.sidebar.markdown("---")
-st.sidebar.header("⚙️ ตั้งค่า K-Means")
+# ============================================================
+# ส่วนที่ 2: โหลดและทำความสะอาดข้อมูล
+# ============================================================
+@st.cache_data
+def load_and_clean_data(file):
+    df = pd.read_csv(file)
+    
+    # ทำความสะอาดตัวเลขที่มี comma
+    cols_to_clean = ['sales_amount', 'cost_amount', 'gross_profit', 'avg_price_per_unit']
+    for col in cols_to_clean:
+        if col in df.columns:
+            df[col] = pd.to_numeric(
+                df[col].astype(str).str.replace(',', '', regex=False),
+                errors='coerce'
+            )
+    
+    # ทำความสะอาด discount_rate
+    if 'discount_rate' in df.columns:
+        df['discount_rate'] = pd.to_numeric(
+            df['discount_rate'].astype(str).str.replace('%', '', regex=False),
+            errors='coerce'
+        )
+    
+    # แปลง boolean
+    bool_cols = ['is_weekend', 'returned']
+    for col in bool_cols:
+        if col in df.columns:
+            df[col] = df[col].map({'TRUE': 1, 'FALSE': 0, True: 1, False: 0})
+    
+    return df
 
-st.sidebar.markdown(f"**📊 แหล่งข้อมูล:** {source_name}")
-st.sidebar.markdown(f"**🔢 คอลัมน์ตัวเลขที่พบ:** {len(numeric_cols)}")
+df = load_and_clean_data(uploaded_file)
 
-# เลือก K
-k_value = st.sidebar.slider("จำนวนคลัสเตอร์ (K)", min_value=2, max_value=15, value=3)
+st.success(f"✅ โหลดไฟล์สำเร็จ! พบข้อมูล {len(df)} แถว, {len(df.columns)} คอลัมน์")
 
-# เลือก features สำหรับ clustering
-selected_features = st.sidebar.multiselect(
-    "เลือก Features สำหรับ Clustering",
-    options=numeric_cols,
-    default=numeric_cols[:min(5, len(numeric_cols))],
-    help="เลือกคอลัมน์ตัวเลขที่ต้องการใช้จัดกลุ่ม"
-)
+# ============================================================
+# ส่วนที่ 3: แสดงข้อมูลตัวอย่าง
+# ============================================================
+with st.expander("🔍 ดูข้อมูลตัวอย่าง"):
+    st.dataframe(df.head(10), width="stretch")
+    st.markdown(f"**ข้อมูลรวม:** {len(df)} แถว, {len(df.columns)} คอลัมน์")
+
+# ============================================================
+# ส่วนที่ 4: เลือก Features
+# ============================================================
+st.subheader("⚙️ ขั้นตอนที่ 2: ตั้งค่าการวิเคราะห์")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    n_clusters = st.slider("จำนวนกลุ่ม (k)", 2, 10, 4, 
+                            help="เลือกจำนวนกลุ่มที่ต้องการจัด")
+
+with col2:
+    # เลือกเฉพาะคอลัมน์ตัวเลข
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    # กรองคอลัมน์ที่เหมาะสม (ไม่รวม ID, record_id)
+    exclude_cols = ['record_id', 'ID', 'id']
+    available_features = [c for c in numeric_cols if c not in exclude_cols]
+    
+    selected_features = st.multiselect(
+        "เลือกตัวแปร (อย่างน้อย 2 ตัว)",
+        available_features,
+        default=available_features[:3] if len(available_features) >= 3 else available_features[:2]
+    )
 
 if len(selected_features) < 2:
-    st.warning("⚠️ กรุณาเลือกอย่างน้อย 2 features")
+    st.warning("️ โปรดเลือกอย่างน้อย 2 ตัวแปร")
     st.stop()
 
-# เลือก 2 features สำหรับ visualization (ป้องกัน duplicate)
-st.sidebar.markdown("---")
-st.sidebar.markdown("**📊 Visualization (2D)**")
+# ============================================================
+# ส่วนที่ 5: ทำ K-Means
+# ============================================================
+X = df[selected_features].copy()
+X = X.fillna(X.median())
 
-col1_viz = st.sidebar.selectbox("แกน X", selected_features, index=0)
-
-# สร้างรายการสำหรับแกน Y โดยตัด col1_viz ออก
-available_features_for_y = [f for f in selected_features if f != col1_viz]
-
-if len(available_features_for_y) == 0:
-    st.sidebar.error("❌ ต้องมีอย่างน้อย 2 features ที่แตกต่างกัน")
-    st.stop()
-
-col2_viz = st.sidebar.selectbox("แกน Y", available_features_for_y, index=0)
-
-# ================= Preprocessing =================
-df_clean = df_clean = df_raw[selected_features].dropna()
-
-if len(df_clean) == 0:
-    st.error("❌ ไม่มีข้อมูลที่ใช้งานได้ (อาจมีค่า NaN ทั้งหมด)")
-    st.stop()
-
-# Scale ข้อมูล
+# Scaling
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(df_clean)
+X_scaled = scaler.fit_transform(X)
 
-# ================= Train K-Means =================
-@st.cache_resource
-def train_kmeans(X, k):
-    model = KMeans(n_clusters=k, random_state=42, n_init=10)
-    labels = model.fit_predict(X)
-    return model, labels
+# Train K-Means
+kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10, max_iter=300)
+clusters = kmeans.fit_predict(X_scaled)
+df['Cluster'] = clusters
 
-model, labels = train_kmeans(X_scaled, k_value)
-sil_score = silhouette_score(X_scaled, labels)
+st.success(f"✅ จัดกลุ่มเสร็จสิ้น! พบ {n_clusters} กลุ่ม จากข้อมูล {len(df)} รายการ")
 
-# ================= แสดงผลหลัก =================
-st.markdown("### 📊 ผลลัพธ์การ Clustering")
+# ============================================================
+# ส่วนที่ 6: แสดงผล (Tabs)
+# ============================================================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 ภาพรวม", 
+    "📈 กราฟ PCA", 
+    "🔍 ข้อมูลแต่ละกลุ่ม",
+    "📋 ตารางข้อมูล"
+])
 
-# Metrics
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("จำนวนคลัสเตอร์ (K)", k_value)
-    st.markdown('</div>', unsafe_allow_html=True)
-with c2:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("จำนวนข้อมูล", f"{len(df_clean):,}")
-    st.markdown('</div>', unsafe_allow_html=True)
-with c3:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Inertia (WCSS)", f"{model.inertia_:,.2f}", help="ผลรวมระยะทางของจุดถึง centroid ของคลัสเตอร์นั้น")
-    st.markdown('</div>', unsafe_allow_html=True)
-with c4:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Silhouette Score", f"{sil_score:.4f}", help="ยิ่งใกล้ 1 ยิ่งดี (-1 ถึง 1)")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ================= 2D Visualization =================
-st.markdown("### 🎨 Visualization (2D)")
-
-# ตรวจสอบว่าเลือก feature ต่างกัน (ป้องกัน duplicate error)
-if col1_viz == col2_viz:
-    st.warning("⚠️ กรุณาเลือก Feature สำหรับแกน X และ Y ที่แตกต่างกัน")
-    st.stop()
-
-# สร้าง DataFrame สำหรับ plotting (rename เพื่อป้องกัน duplicate)
-df_plot = df_clean[[col1_viz, col2_viz]].copy()
-df_plot.columns = [col1_viz, col2_viz]  # ensure unique column names
-df_plot['Cluster'] = 'Cluster ' + labels.astype(str)
-
-fig = px.scatter(
-    df_plot, 
-    x=col1_viz, 
-    y=col2_viz, 
-    color='Cluster',
-    title=f'K-Means Clustering (K={k_value})',
-    color_discrete_sequence=px.colors.qualitative.Plotly
-)
-
-# เพิ่ม centroids
-centroids_scaled = model.cluster_centers_
-centroids_original = scaler.inverse_transform(centroids_scaled)
-df_centroids = pd.DataFrame(
-    centroids_original, 
-    columns=selected_features
-)
-
-fig.add_trace(go.Scatter(
-    x=df_centroids[col1_viz],
-    y=df_centroids[col2_viz],
-    mode='markers',
-    marker=dict(size=20, color='black', symbol='x', line=dict(width=2, color='white')),
-    name='Centroids',
-    hovertext=[f'Centroid {i}' for i in range(k_value)]
-))
-
-fig.update_layout(height=550)
-st.plotly_chart(fig, use_container_width=True)
-
-# ================= Elbow Method & Silhouette Analysis =================
-tab1, tab2 = st.tabs(["📈 Elbow Method", "📊 Silhouette Analysis"])
-
+# ============================================================
+# TAB 1: ภาพรวม
+# ============================================================
 with tab1:
-    st.markdown("#### หา K ที่เหมาะสมด้วย Elbow Method")
-    st.markdown("มองหาจุดที่กราฟ 'หักงอ' (elbow) - มักเป็นค่า K ที่ดีที่สุด")
+    st.subheader("📊 ภาพรวมของแต่ละกลุ่ม")
     
-    inertias = []
-    K_range = range(2, min(16, len(df_clean)))
-    for k in K_range:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        km.fit(X_scaled)
-        inertias.append(km.inertia_)
+    col1, col2 = st.columns(2)
     
-    fig_elbow = go.Figure()
-    fig_elbow.add_trace(go.Scatter(
-        x=list(K_range), 
-        y=inertias,
-        mode='lines+markers',
-        line=dict(color='#e67e22', width=3),
-        marker=dict(size=10)
-    ))
-    fig_elbow.add_vline(x=k_value, line_dash="dash", line_color="red",
-                        annotation_text=f"K={k_value}")
-    fig_elbow.update_layout(
-        title='Elbow Method',
-        xaxis_title='จำนวนคลัสเตอร์ (K)',
-        yaxis_title='Inertia (WCSS)',
-        height=400
-    )
-    st.plotly_chart(fig_elbow, use_container_width=True)
+    with col1:
+        st.markdown("### จำนวนข้อมูลในแต่ละกลุ่ม")
+        cluster_counts = df['Cluster'].value_counts().sort_index()
+        st.bar_chart(cluster_counts)
+    
+    with col2:
+        st.markdown("### สัดส่วนของแต่ละกลุ่ม")
+        fig, ax = plt.subplots(figsize=(6, 6))
+        colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
+        ax.pie(cluster_counts, 
+               labels=[f'Cluster {i}' for i in cluster_counts.index], 
+               autopct='%1.1f%%', 
+               startangle=90, 
+               colors=colors)
+        ax.axis('equal')
+        st.pyplot(fig)
+    
+    st.markdown("---")
+    st.subheader("📊 ค่าเฉลี่ยของแต่ละตัวแปรในแต่ละกลุ่ม")
+    
+    cluster_means = df.groupby('Cluster')[selected_features].mean().round(2)
+    
+    # แก้ PyArrow Error: แปลงทุกคอลัมน์เป็น string
+    cluster_means_display = cluster_means.copy()
+    for col in cluster_means_display.columns:
+        cluster_means_display[col] = cluster_means_display[col].astype(str)
+    
+    st.dataframe(cluster_means_display, width="stretch")
 
+# ============================================================
+# TAB 2: กราฟ PCA
+# ============================================================
 with tab2:
-    st.markdown("#### Silhouette Score สำหรับแต่ละ K")
-    st.markdown("ค่า Silhouette ที่สูงแสดงว่าคลัสเตอร์มีความชัดเจนและแยกจากกันดี")
+    st.subheader("📈 PCA 2D Visualization")
     
-    sil_scores = []
-    for k in K_range:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        km_labels = km.fit_predict(X_scaled)
-        sil_scores.append(silhouette_score(X_scaled, km_labels))
+    pca = PCA(n_components=2, random_state=42)
+    X_pca = pca.fit_transform(X_scaled)
     
-    fig_sil = go.Figure()
-    fig_sil.add_trace(go.Scatter(
-        x=list(K_range),
-        y=sil_scores,
-        mode='lines+markers',
-        line=dict(color='#27ae60', width=3),
-        marker=dict(size=10)
-    ))
-    fig_sil.add_vline(x=k_value, line_dash="dash", line_color="red",
-                      annotation_text=f"K={k_value} (Score: {sil_score:.4f})")
-    fig_sil.update_layout(
-        title='Silhouette Score Analysis',
-        xaxis_title='จำนวนคลัสเตอร์ (K)',
-        yaxis_title='Silhouette Score',
-        yaxis_range=[-1, 1],
-        height=400
+    df_pca = pd.DataFrame({
+        'PC1': X_pca[:, 0],
+        'PC2': X_pca[:, 1],
+        'Cluster': clusters
+    })
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    colors = plt.cm.Set3(np.linspace(0, 1, n_clusters))
+    
+    for i in range(n_clusters):
+        cluster_data = df_pca[df_pca['Cluster'] == i]
+        ax.scatter(cluster_data['PC1'], cluster_data['PC2'], 
+                  c=[colors[i]], 
+                  label=f'Cluster {i}', 
+                  alpha=0.6, s=80, edgecolors='black', linewidth=0.5)
+    
+    # แสดง centroids
+    centroids_pca = pca.transform(kmeans.cluster_centers_)
+    ax.scatter(centroids_pca[:, 0], centroids_pca[:, 1], 
+              c='red', marker='X', s=300, 
+              label='Centroids', 
+              edgecolors='black', linewidth=2, zorder=5)
+    
+    ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', fontsize=12)
+    ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', fontsize=12)
+    ax.set_title(f'K-Means Clustering (k={n_clusters})', fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    st.pyplot(fig)
+    
+    st.info(f"💡 PCA explains {sum(pca.explained_variance_ratio_)*100:.1f}% of variance")
+
+# ============================================================
+# TAB 3: ข้อมูลแต่ละกลุ่ม
+# ============================================================
+with tab3:
+    st.subheader("🔍 Cluster Analysis")
+    
+    selected_cluster = st.selectbox("Select Cluster", range(n_clusters))
+    
+    cluster_data = df[df['Cluster'] == selected_cluster]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Records", f"{len(cluster_data)}")
+    with col2:
+        st.metric("Percentage", f"{len(cluster_data)/len(df)*100:.1f}%")
+    with col3:
+        if 'sales_amount' in cluster_data.columns:
+            st.metric("Avg Sales", f"${cluster_data['sales_amount'].mean():,.0f}")
+    with col4:
+        if 'satisfaction_score' in cluster_data.columns:
+            st.metric("Avg Satisfaction", f"{cluster_data['satisfaction_score'].mean():.2f}")
+    
+    st.markdown("---")
+    st.markdown(f"###  Statistics for Cluster {selected_cluster}")
+    
+    cluster_stats = cluster_data[selected_features].describe().round(2)
+    
+    # แก้ PyArrow Error
+    cluster_stats_display = cluster_stats.copy()
+    for col in cluster_stats_display.columns:
+        cluster_stats_display[col] = cluster_stats_display[col].astype(str)
+    
+    st.dataframe(cluster_stats_display, width="stretch")
+    
+    st.markdown("---")
+    st.markdown(f"### 📋 Sample Data (First 10)")
+    
+    sample_data = cluster_data[selected_features + ['Cluster']].head(10).copy()
+    
+    # แก้ PyArrow Error: แปลงทุกคอลัมน์เป็น string
+    for col in sample_data.columns:
+        sample_data[col] = sample_data[col].astype(str)
+    
+    st.dataframe(sample_data, width="stretch")
+
+# ============================================================
+# TAB 4: ตารางข้อมูล
+# ============================================================
+with tab4:
+    st.subheader("📋 Full Data Table")
+    
+    display_cols = st.multiselect(
+        "Select columns to display",
+        df.columns.tolist(),
+        default=['Cluster'] + selected_features
     )
-    st.plotly_chart(fig_sil, use_container_width=True)
-
-# ================= Cluster Statistics =================
-st.markdown("### 📋 สถิติของแต่ละคลัสเตอร์")
-
-df_result = df_clean.copy()
-df_result['Cluster'] = labels
-
-cluster_stats = df_result.groupby('Cluster').agg(['mean', 'count']).round(2)
-st.dataframe(cluster_stats, use_container_width=True)
-
-# ================= Distribution per Cluster =================
-st.markdown("### 📊 การกระจายตัวของแต่ละคลัสเตอร์")
-
-selected_stat_feature = st.selectbox(
-    "เลือก Feature เพื่อดูการกระจายตัว",
-    selected_features,
-    index=0
-)
-
-fig_dist = px.box(
-    df_result,
-    x='Cluster',
-    y=selected_stat_feature,
-    color='Cluster',
-    title=f'การกระจายตัวของ {selected_stat_feature} ในแต่ละคลัสเตอร์',
-    color_discrete_sequence=px.colors.qualitative.Plotly
-)
-fig_dist.update_layout(height=400)
-st.plotly_chart(fig_dist, use_container_width=True)
-
-# ================= Download Results =================
-st.markdown("### 📥 ดาวน์โหลดผลลัพธ์")
-
-df_download = df_raw.copy()
-df_download = df_download.iloc[:len(df_result)]  # ตัดให้ตรงกับข้อมูลที่ clean แล้ว
-df_download['Cluster'] = labels
-
-csv = df_download.to_csv(index=False).encode('utf-8-sig')
-st.download_button(
-    label="📥 ดาวน์โหลดผลลัพธ์ (CSV พร้อม Cluster Label)",
-    data=csv,
-    file_name=f"kmeans_results_k{k_value}.csv",
-    mime="text/csv",
-    use_container_width=True
-)
-
-# ================= ข้อมูลเชิงลึก =================
-st.markdown("### 💡 คำแนะนำในการตีความผล")
-
-with st.expander("📖 วิธีอ่านผลลัพธ์"):
-    st.markdown(f"""
-    **🎯 Inertia (WCSS) = {model.inertia_:,.2f}**
-    - ผลรวมระยะทางของทุกจุดถึง centroid ของคลัสเตอร์ตัวเอง
-    - ค่ายิ่งน้อย = คลัสเตอร์ยิ่งแน่น (แต่ถ้า K มากเกินไปก็จะน้อยลงเรื่อยๆ)
     
-    **📊 Silhouette Score = {sil_score:.4f}**
-    - วัดว่าแต่ละจุดอยู่ใกล้คลัสเตอร์ตัวเองมากกว่าคลัสเตอร์อื่นแค่ไหน
-    - ช่วงค่า: -1 ถึง 1
-    - **> 0.7** = คลัสเตอร์ชัดเจนดีมาก
-    - **0.5 - 0.7** = ดี
-    - **0.25 - 0.5** = ปานกลาง
-    - **< 0.25** = คลัสเตอร์ไม่ชัดเจน ควรปรับ K
-    
-    **🔍 การเลือก K ที่เหมาะสม:**
-    - ใช้ **Elbow Method**: มองหาจุดที่กราฟหักงอ
-    - ใช้ **Silhouette Score**: เลือก K ที่ให้ค่าสูงสุด
-    - พิจารณาจาก **ความหมายทางธุรกิจ** ของคลัสเตอร์
-    
-    **📌 Centroids (จุดศูนย์กลางคลัสเตอร์):**
-    """)
-    
-    # แสดง centroids ในรูป DataFrame
-    centroids_df = pd.DataFrame(
-        centroids_original,
-        columns=selected_features,
-        index=[f'Cluster {i}' for i in range(k_value)]
-    ).round(2)
-    st.dataframe(centroids_df, use_container_width=True)
+    if display_cols:
+        display_df = df[display_cols].copy()
+        
+        # แก้ PyArrow Error: แปลงทุกคอลัมน์เป็น string
+        for col in display_df.columns:
+            display_df[col] = display_df[col].astype(str)
+        
+        st.dataframe(display_df, width="stretch")
+        
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV with Cluster Labels",
+            data=csv,
+            file_name='data_with_clusters.csv',
+            mime='text/csv'
+        )
 
+# Footer
 st.markdown("---")
-st.caption("🎯 K-Means Clustering | อัปโหลด CSV ของคุณเพื่อวิเคราะห์")
+st.markdown("*Developed with ❤️ using K-Means Clustering*")
