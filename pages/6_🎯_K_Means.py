@@ -33,7 +33,7 @@ st.markdown("---")
 # ============================================================
 # ส่วนที่ 1: อัปโหลดไฟล์
 # ============================================================
-st.subheader("📤 ขั้นตอนที่ 1: อัปโหลดไฟล์ข้อมูล")
+st.subheader(" ขั้นตอนที่ 1: อัปโหลดไฟล์ข้อมูล")
 
 uploaded_file = st.file_uploader(
     "เลือกไฟล์ CSV ที่ต้องการวิเคราะห์",
@@ -90,10 +90,16 @@ df = load_and_clean_data(uploaded_file)
 st.success(f"✅ โหลดไฟล์สำเร็จ! พบข้อมูล {len(df)} แถว, {len(df.columns)} คอลัมน์")
 
 # ============================================================
-# ส่วนที่ 3: แสดงข้อมูลตัวอย่าง
+# ส่วนที่ 3: แสดงข้อมูลตัวอย่าง (แก้ PyArrow Error)
 # ============================================================
 with st.expander("🔍 ดูข้อมูลตัวอย่าง"):
-    st.dataframe(df.head(10), width="stretch")
+    # แปลงทุกคอลัมน์เป็น string เพื่อป้องกัน PyArrow Error
+    df_display = df.head(10).copy()
+    for col in df_display.columns:
+        df_display[col] = df_display[col].astype(str)
+    
+    # ใช้ use_container_width=True แทน width="stretch"
+    st.dataframe(df_display, use_container_width=True)
     st.markdown(f"**ข้อมูลรวม:** {len(df)} แถว, {len(df.columns)} คอลัมน์")
 
 # ============================================================
@@ -156,7 +162,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: ภาพรวม
 # ============================================================
 with tab1:
-    st.subheader("📊 ภาพรวมของแต่ละกลุ่ม")
+    st.subheader(" ภาพรวมของแต่ละกลุ่ม")
     
     col1, col2 = st.columns(2)
     
@@ -187,7 +193,7 @@ with tab1:
     for col in cluster_means_display.columns:
         cluster_means_display[col] = cluster_means_display[col].astype(str)
     
-    st.dataframe(cluster_means_display, width="stretch")
+    st.dataframe(cluster_means_display, use_container_width=True)
 
 # ============================================================
 # TAB 2: กราฟ PCA
@@ -266,7 +272,7 @@ with tab3:
     for col in cluster_stats_display.columns:
         cluster_stats_display[col] = cluster_stats_display[col].astype(str)
     
-    st.dataframe(cluster_stats_display, width="stretch")
+    st.dataframe(cluster_stats_display, use_container_width=True)
     
     st.markdown("---")
     st.markdown(f"### 📋 ข้อมูลตัวอย่าง (10 รายการแรก)")
@@ -277,7 +283,7 @@ with tab3:
     for col in sample_data.columns:
         sample_data[col] = sample_data[col].astype(str)
     
-    st.dataframe(sample_data, width="stretch")
+    st.dataframe(sample_data, use_container_width=True)
 
 # ============================================================
 # TAB 4: ตารางข้อมูล
@@ -298,7 +304,7 @@ with tab4:
         for col in display_df.columns:
             display_df[col] = display_df[col].astype(str)
         
-        st.dataframe(display_df, width="stretch")
+        st.dataframe(display_df, use_container_width=True)
         
         csv = df.to_csv(index=False)
         st.download_button(
