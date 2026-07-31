@@ -103,23 +103,23 @@ else:
 # ============================================================
 st.markdown("""
 <div class="info-box" style="max-width: 600px; margin: 0 auto;">
-    <h3 style="color: #667eea; text-align: center;"> ข้อมูลส่วนตัว</h3>
-    <hr style="border: 2px solid #667eea;">
+    <h3 style="color: #000000; text-align: center;"> ข้อมูลส่วนตัว</h3>
+    <hr style="border: 2px solid #000000;">
     <p style="font-size: 1.3rem; text-align: center;">
         <strong>👤 ชื่อ-นามสกุล:</strong><br>
-        <span style="font-size: 1.5rem; color: #764ba2;">วชิรวิทย์ พรสวาท</span>
+        <span style="font-size: 1.5rem; color: #000000;">วชิรวิทย์ พรสวาท</span>
     </p>
     <p style="font-size: 1.3rem; text-align: center;">
         <strong>🎓 รหัสนักศึกษา:</strong><br>
-        <span style="font-size: 1.5rem; color: #764ba2;">664245032</span>
+        <span style="font-size: 1.5rem; color: #000000;">664245032</span>
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
         <strong>📧 อีเมล:</strong><br>
-        wachirawit.p@student.example.com
+        alonenightcore02@gmail.com
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
         <strong>🏫 สถาบัน:</strong><br>
-        มหาวิทยาลัย...
+        มหาวิทยาลัยราชภัฏนครปฐม
     </p>
     <p style="font-size: 1.2rem; text-align: center;">
         <strong>📅 ปีการศึกษา:</strong><br>
