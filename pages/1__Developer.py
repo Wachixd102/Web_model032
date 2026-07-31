@@ -4,7 +4,7 @@ from PIL import Image
 
 st.set_page_config(page_title="ข้อมูลผู้พัฒนา", page_icon="👤", layout="wide")
 
-# Custom CSS
+# Custom CSS - แก้ไขแล้ว (ไม่กระทบตัวอักษรส่วนอื่น)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
@@ -27,10 +27,16 @@ st.markdown("""
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 3rem;
         border-radius: 20px;
-        color: white;
         text-align: center;
         margin: 2rem 0;
         box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .profile-card h1,
+    .profile-card h2,
+    .profile-card h3,
+    .profile-card p {
+        color: white !important;
     }
     
     .info-box {
@@ -39,6 +45,19 @@ st.markdown("""
         border-radius: 15px;
         margin: 1rem 0;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .footer-box {
+        text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        margin-top: 2rem;
+    }
+    
+    .footer-box h3,
+    .footer-box p {
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -80,11 +99,11 @@ else:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
-# ส่วนที่ 2: ข้อมูลผู้พัฒนา (แสดงตรงกลาง)
+# ส่วนที่ 2: ข้อมูลผู้พัฒนา
 # ============================================================
 st.markdown("""
 <div class="info-box" style="max-width: 600px; margin: 0 auto;">
-    <h3 style="color: #667eea; text-align: center;">📋 ข้อมูลส่วนตัว</h3>
+    <h3 style="color: #667eea; text-align: center;"> ข้อมูลส่วนตัว</h3>
     <hr style="border: 2px solid #667eea;">
     <p style="font-size: 1.3rem; text-align: center;">
         <strong>👤 ชื่อ-นามสกุล:</strong><br>
@@ -112,11 +131,9 @@ st.markdown("""
 # ============================================================
 # ส่วนที่ 3: Footer
 # ============================================================
-st.markdown("---")
 st.markdown("""
-<div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            border-radius: 15px; color: white; margin-top: 2rem;">
-    <h3>✨ ขอบคุณที่เข้าชม </h3>
+<div class="footer-box">
+    <h3>✨ ขอบคุณที่เข้าชม ✨</h3>
     <p style="font-size: 1.1rem;">พัฒนาโดย วชิรวิทย์ พรสวาท | รหัสนักศึกษา 664245032</p>
     <p style="font-size: 0.9rem; opacity: 0.8;">© 2026 All Rights Reserved</p>
 </div>
